@@ -9,6 +9,7 @@ const selectedTab = ref('overview') // overview | maintenance
 
 const downtimeChart = ref({})
 const chartOptions = ref({})
+const downtimeOptions = ref({})
 const polarOptions = ref({})
 
 function buildCharts() {
@@ -33,6 +34,13 @@ function buildOptions() {
       tooltip: { backgroundColor: dark ? '#1e293b' : '#fff', titleColor: dark ? '#f1f5f9' : '#0f172a', bodyColor: dark ? '#94a3b8' : '#475569', borderColor: dark ? '#334155' : '#e2e8f0', borderWidth: 1, cornerRadius: 12, padding: 12 }
     }
   }
+
+  downtimeOptions.value = {
+    ...chartOptions.value,
+    cutout: '65%',
+    plugins: { ...chartOptions.value.plugins, legend: { display: false } },
+    scales: undefined,
+  }
 }
 
 const statusConfig = {
@@ -51,6 +59,18 @@ const maintStatusConfig = {
 const healthColor = (h) => h >= 85 ? 'text-emerald-500' : h >= 70 ? 'text-amber-500' : 'text-rose-500'
 const loadColor = (l) => l > 80 ? 'bg-rose-500' : l > 50 ? 'bg-amber-500' : 'bg-emerald-500'
 const tempColor = (t) => t > 60 ? 'text-rose-500' : t > 45 ? 'text-amber-500' : 'text-emerald-500'
+
+// OEE 三维度拆解 —— 用于横向进度条
+const oeeBreakdown = (eq) => [
+  { key: 'A', label: 'Avail',  value: eq.availability, color: 'bg-indigo-500',   text: 'text-indigo-500' },
+  { key: 'P', label: 'Perf',   value: eq.performance,  color: 'bg-violet-500',   text: 'text-violet-500' },
+  { key: 'Q', label: 'Quality',value: eq.quality,      color: 'bg-emerald-500',  text: 'text-emerald-500' },
+]
+
+// OEE 主色 —— 根据数值分档
+const oeeColor = (v) => v >= 80 ? '#10b981' : v >= 60 ? '#f59e0b' : '#ef4444'
+const oeeColorLight = (v) => v >= 80 ? '#34d399' : v >= 60 ? '#fbbf24' : '#f87171'
+const oeeTextColor = (v) => v >= 80 ? 'text-emerald-600 dark:text-emerald-400' : v >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
 
 const eqStats = computed(() => ({
   total: store.equipment.length,
@@ -119,108 +139,80 @@ onUnmounted(() => observer.disconnect())
 
     <!-- Overview Tab -->
     <div v-if="selectedTab === 'overview'">
-      <!-- Equipment cards with OEE breakdown -->
+      <!-- Equipment cards —— compact, data-dense, no gimmicks -->
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        <div v-for="eq in store.equipment" :key="eq.id" class="stat-card group cursor-pointer">
-          <!-- Header -->
-          <div class="flex items-start justify-between mb-4">
-            <div class="flex items-center gap-3">
-              <div class="p-2.5 rounded-xl" :class="statusConfig[eq.status].bg">
-                <i :class="[statusConfig[eq.status].icon, statusConfig[eq.status].text]" class="text-lg"></i>
+        <div v-for="eq in store.equipment" :key="eq.id" class="stat-card group cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
+          <!-- Header: name + status badge -->
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="w-2 h-2 rounded-full flex-shrink-0" :class="statusConfig[eq.status].dot"></span>
+              <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{{ eq.name }}</p>
+            </div>
+            <span class="badge flex-shrink-0" :class="statusConfig[eq.status].badge">{{ statusConfig[eq.status].label }}</span>
+          </div>
+
+          <!-- Subtitle -->
+          <p class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-3 truncate">{{ eq.id }} · {{ eq.type }}</p>
+
+          <!-- Metrics row: OEE + A + P + Q -->
+          <div class="flex items-center gap-4 mb-3 pb-3 border-b border-slate-100 dark:border-slate-800/60">
+            <div class="text-center px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 min-w-[64px]">
+              <p class="text-lg font-bold tabular-nums leading-tight" :class="oeeTextColor(eq.oee)">{{ eq.oee }}<span class="text-xs">%</span></p>
+              <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">OEE</p>
+            </div>
+            <div class="flex-1 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p class="text-sm font-semibold tabular-nums text-indigo-500 dark:text-indigo-400">{{ eq.availability }}<span class="text-[10px]">%</span></p>
+                <p class="text-[10px] text-slate-400 font-medium">Avail</p>
               </div>
               <div>
-                <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ eq.name }}</p>
-                <p class="text-xs text-slate-400 dark:text-slate-500">{{ eq.type }} · {{ eq.id }}</p>
+                <p class="text-sm font-semibold tabular-nums text-violet-500 dark:text-violet-400">{{ eq.performance }}<span class="text-[10px]">%</span></p>
+                <p class="text-[10px] text-slate-400 font-medium">Perf</p>
               </div>
-            </div>
-            <span class="badge" :class="statusConfig[eq.status].badge">{{ statusConfig[eq.status].label }}</span>
-          </div>
-
-          <!-- OEE 三维度 -->
-          <div class="grid grid-cols-3 gap-3 mb-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-            <div class="text-center">
-              <div class="relative w-14 h-14 mx-auto">
-                <svg class="w-14 h-14 -rotate-90" viewBox="0 0 36 36">
-                  <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="3" class="text-slate-200 dark:text-slate-700"></circle>
-                  <circle cx="18" cy="18" r="15" fill="none" stroke="#6366f1" stroke-width="3" stroke-linecap="round" :stroke-dasharray="`${eq.availability * 0.942} 100`"></circle>
-                </svg>
-                <span class="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-300">{{ eq.availability }}%</span>
+              <div>
+                <p class="text-sm font-semibold tabular-nums text-emerald-500 dark:text-emerald-400">{{ eq.quality }}<span class="text-[10px]">%</span></p>
+                <p class="text-[10px] text-slate-400 font-medium">Quality</p>
               </div>
-              <p class="text-[10px] text-slate-400 mt-1 font-medium">Avail.</p>
-            </div>
-            <div class="text-center">
-              <div class="relative w-14 h-14 mx-auto">
-                <svg class="w-14 h-14 -rotate-90" viewBox="0 0 36 36">
-                  <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="3" class="text-slate-200 dark:text-slate-700"></circle>
-                  <circle cx="18" cy="18" r="15" fill="none" stroke="#8b5cf6" stroke-width="3" stroke-linecap="round" :stroke-dasharray="`${eq.performance * 0.942} 100`"></circle>
-                </svg>
-                <span class="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-300">{{ eq.performance }}%</span>
-              </div>
-              <p class="text-[10px] text-slate-400 mt-1 font-medium">Perf.</p>
-            </div>
-            <div class="text-center">
-              <div class="relative w-14 h-14 mx-auto">
-                <svg class="w-14 h-14 -rotate-90" viewBox="0 0 36 36">
-                  <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="3" class="text-slate-200 dark:text-slate-700"></circle>
-                  <circle cx="18" cy="18" r="15" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" :stroke-dasharray="`${eq.quality * 0.942} 100`"></circle>
-                </svg>
-                <span class="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-300">{{ eq.quality }}%</span>
-              </div>
-              <p class="text-[10px] text-slate-400 mt-1 font-medium">Quality</p>
             </div>
           </div>
 
-          <!-- OEE + Health -->
-          <div class="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
-            <div>
-              <p class="text-xs text-slate-400 dark:text-slate-500">OEE</p>
-              <p class="text-lg font-bold" :class="eq.oee >= 80 ? 'text-emerald-500' : eq.oee >= 60 ? 'text-amber-500' : 'text-rose-500'">{{ eq.oee }}%</p>
-            </div>
-            <div class="text-center">
-              <p class="text-xs text-slate-400 dark:text-slate-500">Health</p>
-              <p class="text-lg font-bold" :class="healthColor(eq.health)">{{ eq.health }}</p>
-            </div>
-            <div class="text-right">
-              <p class="text-xs text-slate-400 dark:text-slate-500">Run Hours</p>
-              <p class="text-sm font-semibold text-slate-600 dark:text-slate-400">{{ eq.runHours.toLocaleString() }}h</p>
-            </div>
-          </div>
-
-          <!-- Load + Temp -->
-          <div class="grid grid-cols-2 gap-3 mt-3">
-            <div>
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-xs text-slate-400 dark:text-slate-500">Load</span>
-                <span class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ eq.load }}%</span>
-              </div>
-              <div class="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                <div class="h-full rounded-full" :class="loadColor(eq.load)" :style="{ width: eq.load + '%' }"></div>
-              </div>
-            </div>
-            <div>
-              <span class="text-xs text-slate-400 dark:text-slate-500">Temp</span>
-              <p class="text-sm font-bold mt-0.5" :class="tempColor(eq.temp)">{{ eq.temp }}°C</p>
-            </div>
+          <!-- Bottom row: Health · Load · Temp · Hours -->
+          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <span>Health <strong :class="healthColor(eq.health)">{{ eq.health }}</strong></span>
+            <span>Load <strong :class="eq.load > 80 ? 'text-rose-500' : eq.load > 50 ? 'text-amber-500' : 'text-emerald-500'">{{ eq.load }}%</strong></span>
+            <span :class="tempColor(eq.temp)"><strong>{{ eq.temp }}°C</strong></span>
+            <span class="font-mono tabular-ns ml-auto text-slate-400">{{ eq.runHours.toLocaleString() }}h</span>
           </div>
         </div>
       </div>
 
       <!-- Downtime reasons -->
-      <div class="chart-card mt-6">
-        <div class="mb-5">
-          <h3 class="font-semibold text-base text-slate-900 dark:text-white">Downtime Analysis</h3>
-          <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Top reasons for equipment downtime this week</p>
+      <div class="chart-card mt-4">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h3 class="font-semibold text-sm text-slate-900 dark:text-white">Downtime Analysis</h3>
+            <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Top reasons for equipment downtime this week</p>
+          </div>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
-          <div class="h-64"><Chart type="doughnut" :data="downtimeChart" :options="chartOptions" /></div>
-          <div class="flex flex-col gap-3">
-            <div v-for="r in store.downtimeReasons" :key="r.reason" class="flex items-center gap-3">
-              <span class="text-sm text-slate-600 dark:text-slate-400 flex-1 truncate">{{ r.reason }}</span>
-              <div class="w-24 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                <div class="h-full rounded-full bg-indigo-500" :style="{ width: r.percent + '%' }"></div>
+        <div class="flex items-center gap-6">
+          <!-- 饼图：紧凑 -->
+          <div class="w-[160px] flex-shrink-0">
+            <div class="h-[140px]"><Chart type="doughnut" :data="downtimeChart" :options="downtimeOptions" /></div>
+          </div>
+          <!-- 排名列表 -->
+          <div class="flex-1 min-w-0 space-y-2">
+            <div v-for="r in [...store.downtimeReasons].sort((a,b) => b.percent - a.percent)" :key="r.reason"
+              class="flex items-center gap-3 group">
+              <span class="text-xs text-slate-600 dark:text-slate-400 w-24 flex-shrink-0 truncate group-hover:text-slate-900 dark:group-hover:white transition-colors">{{ r.reason }}</span>
+              <div class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div class="h-full rounded-full bg-indigo-500 transition-all duration-300" :style="{ width: r.percent + '%' }"></div>
               </div>
-              <span class="text-xs font-medium text-slate-500 dark:text-slate-400 w-12 text-right">{{ r.minutes }}m</span>
-              <span class="text-xs font-bold text-slate-700 dark:text-slate-300 w-12 text-right">{{ r.percent }}%</span>
+              <span class="text-xs font-semibold text-slate-700 dark:text-slate-300 w-[52px] text-right tabular-nums flex-shrink-0">{{ r.minutes }}m</span>
+              <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 w-[40px] text-right tabular-ns flex-shrink-0">{{ r.percent }}%</span>
+            </div>
+            <div class="pt-1 border-t border-slate-100 dark:border-slate-800/60 flex justify-between text-[10px] text-slate-400">
+              <span>Total {{ store.downtimeReasons.reduce((s,r) => s + r.minutes, 0) }}m</span>
+              <span>{{ store.downtimeReasons.length }} categories</span>
             </div>
           </div>
         </div>

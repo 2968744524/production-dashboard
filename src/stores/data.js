@@ -1,7 +1,7 @@
 /**
  * MES Pro · Unified Data Layer
  * -----------------------------------------------------------
- * 所有页面共享的真实业务数据 + 工具函数。
+ * 所有页面共享的真实业务数据 + 工具函数 + actions。
  * 数据规范（海外制造业通用）：
  *   - 工单号：WO-2026-XXXX
  *   - SKU：XXX-XXXX-XX（品名-规格-版本）
@@ -52,19 +52,40 @@ const products = [
 /* ============================================================
  * 3. 工单 Work Orders
  * 状态：Created → Released → In Progress → Completed → Closed
+ * timeline: 操作记录数组（用于详情抽屉展示）
  * ============================================================ */
+function makeTimeline(wo) {
+  const tl = []
+  tl.push({ at: `${wo.startDate} 06:00`, action: 'Work order created', by: 'EMP-1006', note: `Planned qty: ${wo.qty} pcs on ${wo.line}` })
+  if (['Released', 'In Progress', 'Completed', 'Closed'].includes(wo.status)) {
+    tl.push({ at: `${wo.startDate} 08:15`, action: 'Released to production', by: 'EMP-1006', note: 'Materials allocated, BOM verified' })
+  }
+  if (['In Progress', 'Completed', 'Closed'].includes(wo.status)) {
+    tl.push({ at: `${wo.startDate} 14:00`, action: 'Production started', by: wo.lead, note: 'First article inspection passed' })
+  }
+  if (['Completed', 'Closed'].includes(wo.status)) {
+    tl.push({ at: `${wo.dueDate} 18:30`, action: 'Production completed', by: wo.lead, note: `${wo.completed}/${wo.qty} pcs produced` })
+  }
+  if (wo.status === 'Closed') {
+    tl.push({ at: `${wo.dueDate} 20:00`, action: 'Work order closed', by: 'EMP-1003', note: 'Final QA passed, goods moved to finished warehouse' })
+  }
+  return tl
+}
+
 const workOrders = [
-  { id: 'WO-2026-1042', product: 'ALH-1042-A3', qty: 500,  completed: 487, status: 'In Progress', priority: 'High',   line: 'Line A', startDate: '2026-06-23', dueDate: '2026-07-02', lead: 'EMP-1002', progress: 97.4, ganttStart: 0,  ganttDuration: 9 },
-  { id: 'WO-2026-1043', product: 'STS-2208-B1', qty: 1200, completed: 1200, status: 'Completed',  priority: 'Medium', line: 'Line B', startDate: '2026-06-18', dueDate: '2026-06-27', lead: 'EMP-1007', progress: 100,  ganttStart: -5, ganttDuration: 9 },
-  { id: 'WO-2026-1044', product: 'CST-0512-C2', qty: 300,  completed: 0,    status: 'Released',   priority: 'High',   line: 'Line A', startDate: '2026-07-01', dueDate: '2026-07-10', lead: 'EMP-1012', progress: 0,    ganttStart: 2,  ganttDuration: 9 },
-  { id: 'WO-2026-1045', product: 'PCH-3001-D1', qty: 800,  completed: 312,  status: 'In Progress', priority: 'Medium', line: 'Line C', startDate: '2026-06-25', dueDate: '2026-07-05', lead: 'EMP-1005', progress: 39,   ganttStart: 2,  ganttDuration: 10 },
-  { id: 'WO-2026-1046', product: 'GBR-0820-E2', qty: 2000, completed: 1450, status: 'In Progress', priority: 'Low',    line: 'Line B', startDate: '2026-06-22', dueDate: '2026-07-03', lead: 'EMP-1009', progress: 72.5, ganttStart: -1, ganttDuration: 11 },
-  { id: 'WO-2026-1047', product: 'VHV-1105-F1', qty: 250,  completed: 0,    status: 'Created',    priority: 'High',   line: 'Line A', startDate: '2026-07-05', dueDate: '2026-07-12', lead: 'EMP-1006', progress: 0,    ganttStart: 6,  ganttDuration: 7 },
-  { id: 'WO-2026-1048', product: 'HET-2040-H2', qty: 600,  completed: 600,  status: 'Closed',     priority: 'Medium', line: 'Line C', startDate: '2026-06-15', dueDate: '2026-06-24', lead: 'EMP-1002', progress: 100,  ganttStart: -8, ganttDuration: 9 },
-  { id: 'WO-2026-1049', product: 'MNT-0406-G3', qty: 3000, completed: 1850, status: 'In Progress', priority: 'Low',    line: 'Line D', startDate: '2026-06-24', dueDate: '2026-07-08', lead: 'EMP-1011', progress: 61.7, ganttStart: 1,  ganttDuration: 14 },
-  { id: 'WO-2026-1050', product: 'ALH-1042-A3', qty: 400,  completed: 0,    status: 'Released',   priority: 'Medium', line: 'Line A', startDate: '2026-07-03', dueDate: '2026-07-10', lead: 'EMP-1002', progress: 0,    ganttStart: 4,  ganttDuration: 7 },
-  { id: 'WO-2026-1051', product: 'STS-2208-B1', qty: 800,  completed: 0,    status: 'Created',    priority: 'Medium', line: 'Line B', startDate: '2026-07-08', dueDate: '2026-07-18', lead: 'EMP-1007', progress: 0,    ganttStart: 9,  ganttDuration: 10 },
+  { id: 'WO-2026-1042', product: 'ALH-1042-A3', qty: 500,  completed: 487, scrapped: 8, status: 'In Progress', priority: 'High',   line: 'Line A', startDate: '2026-06-23', dueDate: '2026-07-02', lead: 'EMP-1002', progress: 97.4, ganttStart: 0,  ganttDuration: 9,  timeline: [] },
+  { id: 'WO-2026-1043', product: 'STS-2208-B1', qty: 1200, completed: 1200, scrapped: 12, status: 'Completed',  priority: 'Medium', line: 'Line B', startDate: '2026-06-18', dueDate: '2026-06-27', lead: 'EMP-1007', progress: 100,  ganttStart: -5, ganttDuration: 9,  timeline: [] },
+  { id: 'WO-2026-1044', product: 'CST-0512-C2', qty: 300,  completed: 0,    scrapped: 0,  status: 'Released',   priority: 'High',   line: 'Line A', startDate: '2026-07-01', dueDate: '2026-07-10', lead: 'EMP-1012', progress: 0,    ganttStart: 2,  ganttDuration: 9,  timeline: [] },
+  { id: 'WO-2026-1045', product: 'PCH-3001-D1', qty: 800,  completed: 312,  scrapped: 5,  status: 'In Progress', priority: 'Medium', line: 'Line C', startDate: '2026-06-25', dueDate: '2026-07-05', lead: 'EMP-1005', progress: 39,   ganttStart: 2,  ganttDuration: 10, timeline: [] },
+  { id: 'WO-2026-1046', product: 'GBR-0820-E2', qty: 2000, completed: 1450, scrapped: 18, status: 'In Progress', priority: 'Low',    line: 'Line B', startDate: '2026-06-22', dueDate: '2026-07-03', lead: 'EMP-1009', progress: 72.5, ganttStart: -1, ganttDuration: 11, timeline: [] },
+  { id: 'WO-2026-1047', product: 'VHV-1105-F1', qty: 250,  completed: 0,    scrapped: 0,  status: 'Created',    priority: 'High',   line: 'Line A', startDate: '2026-07-05', dueDate: '2026-07-12', lead: 'EMP-1006', progress: 0,    ganttStart: 6,  ganttDuration: 7,  timeline: [] },
+  { id: 'WO-2026-1048', product: 'HET-2040-H2', qty: 600,  completed: 600,  scrapped: 6,  status: 'Closed',     priority: 'Medium', line: 'Line C', startDate: '2026-06-15', dueDate: '2026-06-24', lead: 'EMP-1002', progress: 100,  ganttStart: -8, ganttDuration: 9,  timeline: [] },
+  { id: 'WO-2026-1049', product: 'MNT-0406-G3', qty: 3000, completed: 1850, scrapped: 24, status: 'In Progress', priority: 'Low',    line: 'Line D', startDate: '2026-06-24', dueDate: '2026-07-08', lead: 'EMP-1011', progress: 61.7, ganttStart: 1,  ganttDuration: 14, timeline: [] },
+  { id: 'WO-2026-1050', product: 'ALH-1042-A3', qty: 400,  completed: 0,    scrapped: 0,  status: 'Released',   priority: 'Medium', line: 'Line A', startDate: '2026-07-03', dueDate: '2026-07-10', lead: 'EMP-1002', progress: 0,    ganttStart: 4,  ganttDuration: 7,  timeline: [] },
+  { id: 'WO-2026-1051', product: 'STS-2208-B1', qty: 800,  completed: 0,    scrapped: 0,  status: 'Created',    priority: 'Medium', line: 'Line B', startDate: '2026-07-08', dueDate: '2026-07-18', lead: 'EMP-1007', progress: 0,    ganttStart: 9,  ganttDuration: 10, timeline: [] },
 ]
+// 给每个工单初始化 timeline
+workOrders.forEach(wo => { wo.timeline = makeTimeline(wo) })
 
 /* ============================================================
  * 4. 设备 Equipment（增强：OEE 三维度拆解 + 维护）
@@ -111,7 +132,6 @@ const inspectionBatches = [
   { id: 'LOT-20260629-006', wo: 'WO-2026-1045', product: 'PCH-3001-D1', qty: 90,   sample: 9,  passed: 84,  failed: 1,  result: 'Concession', inspector: 'EMP-1008', time: '2026-06-29 15:35' },
 ]
 
-// Xbar-R 控制图数据：25 个子组，每组样本 n=5，测量关键尺寸 φ30±0.05mm
 const spcData = {
   characteristic: 'Shaft diameter (φ30mm)',
   nominal: 30.000,
@@ -128,10 +148,10 @@ const spcData = {
     { id: 7,  mean: 30.014, range: 0.020 },
     { id: 8,  mean: 30.009, range: 0.013 },
     { id: 9,  mean: 30.018, range: 0.025 },
-    { id: 10, mean: 30.025, range: 0.030 }, // 接近 UCL
+    { id: 10, mean: 30.025, range: 0.030 },
     { id: 11, mean: 30.016, range: 0.021 },
     { id: 12, mean: 30.013, range: 0.019 },
-    { id: 13, mean: 30.041, range: 0.035 }, // 超限点！
+    { id: 13, mean: 30.041, range: 0.035 },
     { id: 14, mean: 30.020, range: 0.023 },
     { id: 15, mean: 30.011, range: 0.016 },
     { id: 16, mean: 30.008, range: 0.014 },
@@ -145,15 +165,14 @@ const spcData = {
     { id: 24, mean: 30.016, range: 0.021 },
     { id: 25, mean: 30.014, range: 0.019 },
   ],
-  cl: 30.014,     // center line (mean of means)
-  ucl: 30.038,    // upper control limit
-  lcl: 29.990,    // lower control limit
+  cl: 30.014,
+  ucl: 30.038,
+  lcl: 29.990,
   cpk: 1.42,
   ppk: 1.36,
   sigma: 0.0095,
 }
 
-// 缺陷柏拉图数据
 const defectsPareto = [
   { defect: 'Dimensional out of tolerance', count: 47, cumulative: 47 },
   { defect: 'Surface finish',               count: 28, cumulative: 75 },
@@ -164,13 +183,13 @@ const defectsPareto = [
 ]
 
 /* ============================================================
- * 6. 产品追溯 Traceability
+ * 6. 产品追溯 Traceability —— 5 条批次链
+ * 每条链独立：不同产品、不同供应商、不同客户
  * ============================================================ */
-const traceabilityTree = {
-  // 成品批次 -> 上游原料 + 工序 -> 下游客户
-  root: { id: 'LOT-20260628-014', type: 'Finished Goods', product: 'ALH-1042-A3', qty: 120, wo: 'WO-2026-1042', date: '2026-06-28', inspector: 'EMP-1003', result: 'Accept' },
-  children: [
-    {
+const traceabilityRecords = [
+  {
+    root: { id: 'LOT-20260628-014', type: 'Finished Goods', product: 'ALH-1042-A3', qty: 120, wo: 'WO-2026-1042', date: '2026-06-28', inspector: 'EMP-1003', result: 'Accept' },
+    children: [{
       id: 'WO-2026-1042', type: 'Work Order', label: 'ALH-1042-A3 · 500 pcs',
       operations: [
         { op: 'Op-10 CNC Roughing', machine: 'EQ-CNC-A01', operator: 'EMP-1002', start: '06-23 06:00', end: '06-23 14:00', result: 'Pass' },
@@ -179,17 +198,91 @@ const traceabilityTree = {
         { op: 'Op-40 Inspection',    machine: 'EQ-QSC-D01', operator: 'EMP-1003', start: '06-24 13:00', end: '06-24 16:00', result: 'Pass' },
         { op: 'Op-50 Packaging',     machine: 'EQ-PKG-C01', operator: 'EMP-1009', start: '06-24 16:30', end: '06-24 18:00', result: 'Pass' },
       ],
-    }
-  ],
-  upstream: [
-    { id: 'RM-AL-2026-088', type: 'Raw Material', name: 'Aluminum bar 6061-T6 φ35mm', supplier: 'Alcoa Corp', lot: 'RM-AL-2026-088', received: '2026-06-20', qty: '500 kg', cert: 'Mill cert #MC-2026-4471' },
-    { id: 'RM-CT-2026-031', type: 'Coolant',       name: 'Semi-synthetic coolant 5%', supplier: 'Master Fluids', lot: 'RM-CT-2026-031', received: '2026-06-15', qty: '200 L', cert: 'MSDS-CF-1132' },
-  ],
-  downstream: [
-    { id: 'SO-2026-0842', type: 'Customer Order', customer: 'Detroit Auto Parts Inc.', qty: 100, shipDate: '2026-06-30', tracking: '1Z-999-AA1-2026-558', address: 'Detroit, MI' },
-    { id: 'SO-2026-0843', type: 'Customer Order', customer: 'Midwest Precision LLC',   qty: 20,  shipDate: '2026-07-02', tracking: '1Z-999-AA1-2026-561', address: 'Chicago, IL' },
-  ],
-}
+    }],
+    upstream: [
+      { id: 'RM-AL-2026-088', type: 'Raw Material', name: 'Aluminum bar 6061-T6 φ35mm', supplier: 'Alcoa Corp', lot: 'RM-AL-2026-088', received: '2026-06-20', qty: '500 kg', cert: 'Mill cert #MC-2026-4471' },
+      { id: 'RM-CT-2026-031', type: 'Coolant',       name: 'Semi-synthetic coolant 5%', supplier: 'Master Fluids', lot: 'RM-CT-2026-031', received: '2026-06-15', qty: '200 L', cert: 'MSDS-CF-1132' },
+    ],
+    downstream: [
+      { id: 'SO-2026-0842', type: 'Customer Order', customer: 'Detroit Auto Parts Inc.', qty: 100, shipDate: '2026-06-30', tracking: '1Z-999-AA1-2026-558', address: 'Detroit, MI' },
+      { id: 'SO-2026-0843', type: 'Customer Order', customer: 'Midwest Precision LLC',   qty: 20,  shipDate: '2026-07-02', tracking: '1Z-999-AA1-2026-561', address: 'Chicago, IL' },
+    ],
+  },
+  {
+    root: { id: 'LOT-20260628-015', type: 'Finished Goods', product: 'GBR-0820-E2', qty: 200, wo: 'WO-2026-1046', date: '2026-06-28', inspector: 'EMP-1008', result: 'Accept' },
+    children: [{
+      id: 'WO-2026-1046', type: 'Work Order', label: 'GBR-0820-E2 · 2000 pcs',
+      operations: [
+        { op: 'Op-10 Die Casting',  machine: 'EQ-ASM-B01', operator: 'EMP-1009', start: '06-22 06:00', end: '06-22 18:00', result: 'Pass' },
+        { op: 'Op-20 Trimming',     machine: 'EQ-ASM-B02', operator: 'EMP-1009', start: '06-23 08:00', end: '06-23 14:00', result: 'Pass' },
+        { op: 'Op-30 Inspection',   machine: 'EQ-QSC-D01', operator: 'EMP-1008', start: '06-23 15:00', end: '06-23 17:00', result: 'Pass' },
+        { op: 'Op-40 Packaging',    machine: 'EQ-PKG-C01', operator: 'EMP-1009', start: '06-24 09:00', end: '06-24 11:00', result: 'Pass' },
+      ],
+    }],
+    upstream: [
+      { id: 'RM-AL-2026-091', type: 'Raw Material', name: 'Aluminum ingot A380', supplier: 'Norsk Hydro', lot: 'RM-AL-2026-091', received: '2026-06-18', qty: '1200 kg', cert: 'Mill cert #MC-2026-4502' },
+    ],
+    downstream: [
+      { id: 'SO-2026-0850', type: 'Customer Order', customer: 'Ohio Gear Works', qty: 180, shipDate: '2026-07-01', tracking: '1Z-999-AA1-2026-570', address: 'Cleveland, OH' },
+      { id: 'SO-2026-0851', type: 'Customer Order', customer: 'Penn Tool Co.',   qty: 20,  shipDate: '2026-07-03', tracking: '1Z-999-AA1-2026-571', address: 'Pittsburgh, PA' },
+    ],
+  },
+  {
+    root: { id: 'LOT-20260629-001', type: 'Finished Goods', product: 'PCH-3001-D1', qty: 80, wo: 'WO-2026-1045', date: '2026-06-29', inspector: 'EMP-1003', result: 'Concession' },
+    children: [{
+      id: 'WO-2026-1045', type: 'Work Order', label: 'PCH-3001-D1 · 800 pcs',
+      operations: [
+        { op: 'Op-10 Turning',       machine: 'EQ-CNC-A01', operator: 'EMP-1005', start: '06-25 06:00', end: '06-25 16:00', result: 'Pass' },
+        { op: 'Op-20 Heat Treatment',machine: 'EQ-ASM-B02', operator: 'EMP-1005', start: '06-26 08:00', end: '06-26 12:00', result: 'Pass' },
+        { op: 'Op-30 Grinding',      machine: 'EQ-CNC-A02', operator: 'EMP-1005', start: '06-27 08:00', end: '06-27 15:00', result: 'Pass' },
+        { op: 'Op-40 Inspection',    machine: 'EQ-QSC-D01', operator: 'EMP-1003', start: '06-28 09:00', end: '06-28 11:00', result: 'Hold' },
+      ],
+    }],
+    upstream: [
+      { id: 'RM-ST-2026-042', type: 'Raw Material', name: '4140 steel bar φ32mm', supplier: 'Timken Steel', lot: 'RM-ST-2026-042', received: '2026-06-22', qty: '600 kg', cert: 'Mill cert #MC-2026-4515' },
+    ],
+    downstream: [
+      { id: 'SO-2026-0860', type: 'Customer Order', customer: 'Detroit Auto Parts Inc.', qty: 60, shipDate: '2026-07-04', tracking: '1Z-999-AA1-2026-580', address: 'Detroit, MI' },
+    ],
+  },
+  {
+    root: { id: 'LOT-20260629-002', type: 'Finished Goods', product: 'MNT-0406-G3', qty: 300, wo: 'WO-2026-1049', date: '2026-06-29', inspector: 'EMP-1008', result: 'Accept' },
+    children: [{
+      id: 'WO-2026-1049', type: 'Work Order', label: 'MNT-0406-G3 · 3000 pcs',
+      operations: [
+        { op: 'Op-10 Stamping',     machine: 'EQ-ASM-B01', operator: 'EMP-1011', start: '06-24 22:00', end: '06-25 06:00', result: 'Pass' },
+        { op: 'Op-20 Deburring',    machine: 'EQ-ASM-B02', operator: 'EMP-1011', start: '06-25 08:00', end: '06-25 14:00', result: 'Pass' },
+        { op: 'Op-30 Plating',      machine: 'EQ-ASM-B02', operator: 'EMP-1011', start: '06-26 08:00', end: '06-26 16:00', result: 'Pass' },
+        { op: 'Op-40 Inspection',   machine: 'EQ-QSC-D01', operator: 'EMP-1008', start: '06-27 09:00', end: '06-27 12:00', result: 'Pass' },
+        { op: 'Op-50 Packaging',    machine: 'EQ-PKG-C01', operator: 'EMP-1009', start: '06-27 14:00', end: '06-27 17:00', result: 'Pass' },
+      ],
+    }],
+    upstream: [
+      { id: 'RM-ST-2026-048', type: 'Raw Material', name: 'Q235 steel sheet 6mm', supplier: 'Nucor Corp', lot: 'RM-ST-2026-048', received: '2026-06-20', qty: '2000 kg', cert: 'Mill cert #MC-2026-4520' },
+    ],
+    downstream: [
+      { id: 'SO-2026-0870', type: 'Customer Order', customer: 'Midwest Precision LLC', qty: 200, shipDate: '2026-07-02', tracking: '1Z-999-AA1-2026-590', address: 'Chicago, IL' },
+      { id: 'SO-2026-0871', type: 'Customer Order', customer: 'Ohio Gear Works',       qty: 100, shipDate: '2026-07-05', tracking: '1Z-999-AA1-2026-591', address: 'Cleveland, OH' },
+    ],
+  },
+  {
+    root: { id: 'LOT-20260629-006', type: 'Finished Goods', product: 'PCH-3001-D1', qty: 90, wo: 'WO-2026-1045', date: '2026-06-29', inspector: 'EMP-1008', result: 'Concession' },
+    children: [{
+      id: 'WO-2026-1045', type: 'Work Order', label: 'PCH-3001-D1 · 800 pcs',
+      operations: [
+        { op: 'Op-10 Turning',        machine: 'EQ-CNC-A01', operator: 'EMP-1005', start: '06-28 22:00', end: '06-29 06:00', result: 'Pass' },
+        { op: 'Op-20 Heat Treatment', machine: 'EQ-ASM-B02', operator: 'EMP-1005', start: '06-29 08:00', end: '06-29 12:00', result: 'Pass' },
+        { op: 'Op-30 Grinding',       machine: 'EQ-CNC-A02', operator: 'EMP-1005', start: '06-29 13:00', end: '06-29 15:00', result: 'Hold' },
+      ],
+    }],
+    upstream: [
+      { id: 'RM-ST-2026-042', type: 'Raw Material', name: '4140 steel bar φ32mm', supplier: 'Timken Steel', lot: 'RM-ST-2026-042', received: '2026-06-22', qty: '600 kg', cert: 'Mill cert #MC-2026-4515' },
+    ],
+    downstream: [
+      { id: 'SO-2026-0862', type: 'Customer Order', customer: 'Penn Tool Co.', qty: 90, shipDate: '2026-07-06', tracking: '1Z-999-AA1-2026-595', address: 'Pittsburgh, PA' },
+    ],
+  },
+]
 
 /* ============================================================
  * 7. 库存 Inventory
@@ -237,6 +330,17 @@ const alerts = [
 ]
 
 /* ============================================================
+ * 工单状态机
+ * ============================================================ */
+const STATUS_FLOW = {
+  'Created':     { next: 'Released',     action: 'Release',         icon: 'pi pi-forward',       note: 'Released to production, materials allocated' },
+  'Released':    { next: 'In Progress',  action: 'Start Production', icon: 'pi pi-play',         note: 'Production started, first article inspection passed' },
+  'In Progress': { next: 'Completed',    action: 'Mark Completed',   icon: 'pi pi-check',        note: 'Production completed, all units produced' },
+  'Completed':   { next: 'Closed',       action: 'Close Order',      icon: 'pi pi-lock',         note: 'Final QA passed, goods moved to finished warehouse' },
+  'Closed':      null,
+}
+
+/* ============================================================
  * Store
  * ============================================================ */
 export const useDataStore = defineStore('mesData', () => {
@@ -249,7 +353,7 @@ export const useDataStore = defineStore('mesData', () => {
   const _inspectionBatches = ref(inspectionBatches)
   const _spcData = ref(spcData)
   const _defectsPareto = ref(defectsPareto)
-  const _traceability = ref(traceabilityTree)
+  const _traceabilityRecords = ref(traceabilityRecords)
   const _inventory = ref(inventory)
   const _inventoryMovements = ref(inventoryMovements)
   const _dashboardKpi = ref(dashboardKpi)
@@ -274,6 +378,10 @@ export const useDataStore = defineStore('mesData', () => {
     return _products.value.find(p => p.sku === sku)
   }
 
+  function getWorkOrder(id) {
+    return _workOrders.value.find(w => w.id === id)
+  }
+
   // 计算库存水位状态
   const inventoryStatus = computed(() => {
     return _inventory.value.map(item => {
@@ -284,6 +392,109 @@ export const useDataStore = defineStore('mesData', () => {
       return { ...item, status, ratio }
     })
   })
+
+  // 活跃工单（非 Closed/Completed）
+  const activeWorkOrders = computed(() =>
+    _workOrders.value.filter(w => w.status !== 'Closed' && w.status !== 'Completed')
+  )
+
+  /* ---------- Actions ---------- */
+
+  /**
+   * 新增工单
+   * payload: { product, qty, line, priority, startDate, dueDate, lead }
+   */
+  function createWorkOrder(payload) {
+    // 生成新工单号：WO-2026-{max+1}
+    const maxNum = _workOrders.value.reduce((max, w) => {
+      const n = parseInt(w.id.split('-').pop(), 10)
+      return n > max ? n : max
+    }, 1051)
+    const newId = `WO-2026-${maxNum + 1}`
+
+    // 计算甘特图位置（相对今天 2026-06-29）
+    const today = new Date('2026-06-29')
+    const start = new Date(payload.startDate)
+    const due = new Date(payload.dueDate)
+    const ganttStart = Math.round((start - today) / (1000 * 60 * 60 * 24))
+    const ganttDuration = Math.max(1, Math.round((due - start) / (1000 * 60 * 60 * 24)))
+
+    const newWo = {
+      id: newId,
+      product: payload.product,
+      qty: Number(payload.qty),
+      completed: 0,
+      scrapped: 0,
+      status: 'Created',
+      priority: payload.priority,
+      line: payload.line,
+      startDate: payload.startDate,
+      dueDate: payload.dueDate,
+      lead: payload.lead,
+      progress: 0,
+      ganttStart,
+      ganttDuration,
+      timeline: [{
+        at: `${payload.startDate} 06:00`,
+        action: 'Work order created',
+        by: 'EMP-1006',
+        note: `Planned qty: ${payload.qty} pcs on ${payload.line}`,
+      }],
+    }
+    _workOrders.value.push(newWo)
+    return newWo
+  }
+
+  /**
+   * 推进工单状态
+   * 返回更新后的工单或 null（已是终态）
+   */
+  function advanceWorkOrderStatus(id) {
+    const wo = _workOrders.value.find(w => w.id === id)
+    if (!wo) return null
+    const flow = STATUS_FLOW[wo.status]
+    if (!flow) return null
+
+    const prevStatus = wo.status
+    wo.status = flow.next
+
+    // 状态相关副作用
+    if (flow.next === 'In Progress') {
+      // 开始生产时，progress 给个初始值（如果是 0）
+      if (wo.progress === 0) wo.progress = 5
+    }
+    if (flow.next === 'Completed') {
+      wo.progress = 100
+      wo.completed = wo.qty
+    }
+
+    // 追加时间线记录
+    const now = new Date()
+    const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    wo.timeline.push({
+      at: ts,
+      action: flow.note,
+      by: 'EMP-1001', // admin 操作
+      note: `Status changed from ${prevStatus} to ${flow.next}`,
+    })
+
+    return wo
+  }
+
+  /**
+   * 按 lot 号查询追溯链
+   * 返回批次链对象或 null
+   */
+  function getTraceabilityByLot(lot) {
+    if (!lot) return null
+    const trimmed = lot.trim().toUpperCase()
+    return _traceabilityRecords.value.find(r => r.root.id.toUpperCase() === trimmed) || null
+  }
+
+  // 最近的批次号（用于快捷标签）
+  const recentLots = computed(() =>
+    _traceabilityRecords.value.map(r => r.root.id)
+  )
 
   function initMockData() {
     // 兼容旧代码，无操作
@@ -299,15 +510,22 @@ export const useDataStore = defineStore('mesData', () => {
     inspectionBatches: _inspectionBatches,
     spcData: _spcData,
     defectsPareto: _defectsPareto,
-    traceability: _traceability,
+    traceabilityRecords: _traceabilityRecords,
     inventory: _inventory,
     inventoryStatus,
     inventoryMovements: _inventoryMovements,
     dashboardKpi: _dashboardKpi,
     alerts: _alerts,
     tasks,
+    activeWorkOrders,
+    recentLots,
+    statusFlow: STATUS_FLOW,
     getEmployee,
     getProduct,
+    getWorkOrder,
+    createWorkOrder,
+    advanceWorkOrderStatus,
+    getTraceabilityByLot,
     initMockData,
   }
 })

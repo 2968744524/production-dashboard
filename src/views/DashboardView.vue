@@ -65,14 +65,14 @@ function buildCharts() {
     datasets: [{
       label: 'Today',
       data: [91.8, 88.4, 98.2, 82.4],
-      backgroundColor: 'rgba(99,102,241,0.15)',
+      backgroundColor: 'rgba(99,102,241,0.22)',
       borderColor: '#6366f1', borderWidth: 2.5,
-      pointBackgroundColor: '#6366f1', pointBorderColor: '#fff', pointBorderWidth: 2,
-      pointRadius: 4, pointHoverRadius: 6,
+      pointBackgroundColor: '#6366f1', pointBorderColor: '#fff', pointBorderWidth: 2.5,
+      pointRadius: 5, pointHoverRadius: 8,
     }, {
       label: 'Target', data: [92, 90, 98, 85],
-      backgroundColor: 'rgba(245,158,11,0.06)',
-      borderColor: '#f59e0b', borderDash: [8, 4], borderWidth: 2, pointRadius: 0,
+      backgroundColor: 'rgba(245,158,11,0.10)',
+      borderColor: '#f59e0b', borderDash: [6, 4], borderWidth: 2, pointRadius: 0,
     }]
   }
 }
@@ -98,14 +98,29 @@ function buildOptions() {
 
   doughnutOptions.value = {
     ...chartOptions.value, cutout: '70%',
-    plugins: { ...chartOptions.value.plugins, legend: { ...chartOptions.value.plugins.legend, position: 'bottom', labels: { ...chartOptions.value.plugins.legend.labels, padding: 16, usePointStyle: true } } },
+    plugins: { ...chartOptions.value.plugins, legend: { ...chartOptions.value.plugins.legend, position: 'bottom', align: 'center', labels: { ...chartOptions.value.plugins.legend.labels, padding: 16, usePointStyle: true } } },
     scales: undefined,
   }
 
   radarOptions.value = {
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { ...chartOptions.value.plugins.legend, position: 'bottom' }, tooltip: chartOptions.value.plugins.tooltip },
-    scales: { r: { min: 0, max: 100, ticks: { color: dark ? '#475569' : '#cbd5e1', backdropColor: 'transparent', font: { size: 10 }, stepSize: 25 }, grid: { color: dark ? 'rgba(148,163,184,0.12)' : 'rgba(15,23,42,0.06)' }, angleLines: { color: dark ? 'rgba(148,163,184,0.12)' : 'rgba(15,23,42,0.06)' }, pointLabels: { color: dark ? '#e2e8f0' : '#334155', font: { size: 11, family: 'Inter', weight: 500 } } } }
+    responsive: true, maintainAspectRatio: true,
+    plugins: { legend: { display: false }, tooltip: chartOptions.value.plugins.tooltip },
+    scales: {
+      r: {
+        min: 0, max: 100,
+        ticks: {
+          color: dark ? '#64748b' : '#94a3b8',
+          backdropColor: 'transparent',
+          showLabelBackdrop: false,
+          font: { size: 10, family: 'Inter', weight: 500 },
+          stepSize: 25,
+          padding: 4
+        },
+        grid: { color: dark ? 'rgba(148,163,184,0.14)' : 'rgba(15,23,42,0.07)' },
+        angleLines: { color: dark ? 'rgba(148,163,184,0.14)' : 'rgba(15,23,42,0.07)' },
+        pointLabels: { color: dark ? '#e2e8f0' : '#1e293b', font: { size: 12, family: 'Inter', weight: 600 }, padding: 8 }
+      }
+    }
   }
 }
 
@@ -198,16 +213,26 @@ onUnmounted(() => observer.disconnect())
 
     <!-- Charts Row 2 -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-      <div class="chart-card">
-        <div class="mb-5">
+      <div class="chart-card flex flex-col items-center">
+        <div class="mb-3 w-full">
           <h3 class="font-semibold text-base text-slate-900 dark:text-white">OEE Breakdown</h3>
           <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Availability × Performance × Quality</p>
         </div>
-        <div class="h-56"><Chart type="radar" :data="oeeChart" :options="radarOptions" /></div>
+        <div class="w-full flex items-center justify-center"><Chart type="radar" :data="oeeChart" :options="radarOptions" /></div>
+        <div class="flex items-center justify-center gap-5 pt-1">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-indigo-500 ring-2 ring-indigo-500/30"></span>
+            <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">Today</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full border-2 border-amber-500"></span>
+            <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">Target</span>
+          </div>
+        </div>
       </div>
 
       <div class="lg:col-span-2 chart-card">
-        <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center justify-between mb-4">
           <div>
             <h3 class="font-semibold text-base text-slate-900 dark:text-white">Recent Alerts</h3>
             <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Latest system notifications</p>
