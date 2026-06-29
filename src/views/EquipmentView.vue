@@ -141,7 +141,7 @@ onUnmounted(() => observer.disconnect())
     <div v-if="selectedTab === 'overview'">
       <!-- Equipment cards —— compact, data-dense, no gimmicks -->
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        <div v-for="eq in store.equipment" :key="eq.id" class="stat-card group cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
+        <div v-for="eq in store.equipment" :key="eq.id" class="stat-card group cursor-pointer">
           <!-- Header: name + status badge -->
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2.5 min-w-0">
