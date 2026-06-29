@@ -1,162 +1,131 @@
-<template>
-  <div class="login-container">
-    <div class="login-bg">
-      <div class="grid-overlay"></div>
-    </div>
-    <div class="login-card">
-      <div class="login-header">
-        <div class="logo-icon">
-          <el-icon :size="36"><Monitor /></el-icon>
-        </div>
-        <h1>Production Dashboard</h1>
-        <p>Manufacturing Execution & Monitoring System</p>
-      </div>
-      <el-form :model="form" :rules="rules" ref="formRef" @keyup.enter="handleLogin">
-        <el-form-item prop="username">
-          <el-input
-            v-model="form.username"
-            prefix-icon="User"
-            placeholder="Username"
-            size="large"
-          />
-        </el-form-item>
-        <el-form-item prop="password">
-          <el-input
-            v-model="form.password"
-            prefix-icon="Lock"
-            type="password"
-            placeholder="Password"
-            size="large"
-            show-password
-          />
-        </el-form-item>
-        <el-button
-          type="primary"
-          size="large"
-          :loading="loading"
-          class="login-btn"
-          @click="handleLogin"
-        >
-          Sign In
-        </el-button>
-      </el-form>
-      <div class="login-hint">
-        Demo: admin / admin123
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { users } from '../stores/data'
+import { useToast } from 'primevue/usetoast'
 
 const router = useRouter()
-const formRef = ref()
+const toast = useToast()
+const username = ref('')
+const password = ref('')
 const loading = ref(false)
+const showPassword = ref(false)
 
-const form = reactive({
-  username: '',
-  password: ''
-})
-
-const rules = {
-  username: [{ required: true, message: 'Please enter username', trigger: 'blur' }],
-  password: [{ required: true, message: 'Please enter password', trigger: 'blur' }]
-}
-
-const handleLogin = () => {
-  formRef.value.validate((valid) => {
-    if (!valid) return
-    loading.value = true
-    setTimeout(() => {
-      const user = users.find(u => u.username === form.username && u.password === form.password)
-      if (user) {
-        localStorage.setItem('token', 'jwt-simulated-token-' + Date.now())
-        localStorage.setItem('user', JSON.stringify(user))
-        ElMessage.success('Welcome back, ' + user.role)
-        router.push('/')
-      } else {
-        ElMessage.error('Invalid credentials')
-      }
-      loading.value = false
-    }, 800)
-  })
+function handleLogin() {
+  if (!username.value || !password.value) {
+    toast.add({ severity: 'warn', summary: 'Missing info', detail: 'Please enter username and password', life: 3000 })
+    return
+  }
+  loading.value = true
+  setTimeout(() => {
+    loading.value = false
+    if ((username.value === 'admin' && password.value === 'admin123') ||
+        (username.value === 'operator' && password.value === 'operator123')) {
+      toast.add({ severity: 'success', summary: 'Welcome back', detail: `Signed in as ${username.value}`, life: 2000 })
+      router.push('/dashboard')
+    } else {
+      toast.add({ severity: 'error', summary: 'Login failed', detail: 'Invalid credentials. Try admin / admin123', life: 4000 })
+    }
+  }, 600)
 }
 </script>
 
-<style scoped>
-.login-container {
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  background: var(--bg-primary);
-}
-.login-bg {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 20% 50%, rgba(64, 158, 255, 0.08) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 30%, rgba(103, 194, 58, 0.05) 0%, transparent 50%);
-}
-.grid-overlay {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(64, 158, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(64, 158, 255, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-}
-.login-card {
-  width: 400px;
-  padding: 48px 40px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  position: relative;
-  z-index: 1;
-  box-shadow: 0 25px 50px rgba(0,0,0,0.3);
-}
-.login-header {
-  text-align: center;
-  margin-bottom: 32px;
-}
-.logo-icon {
-  width: 72px;
-  height: 72px;
-  margin: 0 auto 16px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #409eff, #337ecc);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-}
-.login-header h1 {
-  color: var(--text-primary);
-  font-size: 24px;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-.login-header p {
-  color: var(--text-secondary);
-  font-size: 14px;
-}
-.login-btn {
-  width: 100%;
-  font-size: 16px;
-  letter-spacing: 2px;
-  margin-top: 8px;
-}
-.login-hint {
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 12px;
-  margin-top: 16px;
-  opacity: 0.6;
-}
-</style>
+<template>
+  <div class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+    style="background: linear-gradient(135deg, #4338ca 0%, #6d28d9 50%, #7c3aed 100%);">
+
+    <!-- Animated background -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none">
+      <div class="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-white/10 blur-3xl float"></div>
+      <div class="absolute -bottom-32 -left-20 w-[500px] h-[500px] rounded-full bg-violet-300/15 blur-3xl float" style="animation-delay: -1.5s"></div>
+      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-indigo-300/10 blur-3xl"></div>
+      <!-- Grid pattern -->
+      <svg class="absolute inset-0 w-full h-full opacity-[0.04]" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+            <path d="M 32 0 L 0 0 0 32" fill="none" stroke="white" stroke-width="1"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)"/>
+      </svg>
+    </div>
+
+    <div class="relative w-full max-w-md">
+      <!-- Logo -->
+      <div class="text-center mb-8">
+        <div class="relative w-20 h-20 mx-auto rounded-3xl bg-white/15 backdrop-blur-md flex items-center justify-center mb-5 ring-1 ring-white/20 shadow-2xl">
+          <i class="pi pi-bolt text-white text-3xl"></i>
+          <span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full ring-2 ring-violet-700 animate-pulse"></span>
+        </div>
+        <h1 class="text-3xl font-bold text-white tracking-tight">MES Pro</h1>
+        <p class="text-white/60 text-sm mt-1.5 font-medium">Manufacturing Execution System · v2.0</p>
+      </div>
+
+      <!-- Login Card -->
+      <div class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20 dark:border-slate-800">
+        <div class="mb-7">
+          <h2 class="text-xl font-bold text-slate-800 dark:text-white">Sign in</h2>
+          <p class="text-slate-400 dark:text-slate-500 text-sm mt-1">Enter your credentials to access the system</p>
+        </div>
+
+        <form @submit.prevent="handleLogin" class="flex flex-col gap-5">
+          <div class="flex flex-col gap-2">
+            <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Username</label>
+            <div class="relative">
+              <i class="pi pi-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+              <input v-model="username" type="text" placeholder="admin"
+                class="field-input pl-11" />
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Password</label>
+              <button type="button" class="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors">Forgot?</button>
+            </div>
+            <div class="relative">
+              <i class="pi pi-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+              <input v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="admin123"
+                class="field-input pl-11 pr-11" />
+              <button type="button" @click="showPassword = !showPassword"
+                class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                <i :class="showPassword ? 'pi pi-eye-slash' : 'pi pi-eye'" class="text-sm"></i>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" :disabled="loading" class="btn-primary w-full flex items-center justify-center gap-2 py-3.5 mt-1">
+            <i v-if="loading" class="pi pi-spinner pi-spin"></i>
+            <span>{{ loading ? 'Signing in...' : 'Sign in' }}</span>
+            <i v-if="!loading" class="pi pi-arrow-right text-sm"></i>
+          </button>
+        </form>
+
+        <!-- SSO options -->
+        <div class="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800">
+          <p class="text-[10px] text-slate-400 text-center uppercase tracking-wider font-semibold mb-3">Quick sign in</p>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" @click="username = 'admin'; password = 'admin123'"
+              class="px-3 py-2.5 rounded-xl text-xs font-medium border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 transition-all text-slate-600 dark:text-slate-300">
+              <i class="pi pi-user mr-1.5 text-indigo-500"></i>Admin
+            </button>
+            <button type="button" @click="username = 'operator'; password = 'operator123'"
+              class="px-3 py-2.5 rounded-xl text-xs font-medium border border-slate-200 dark:border-slate-700 hover:border-violet-300 dark:hover:border-violet-500/50 hover:bg-violet-50/50 dark:hover:bg-violet-500/10 transition-all text-slate-600 dark:text-slate-300">
+              <i class="pi pi-cog mr-1.5 text-violet-500"></i>Operator
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div class="flex items-center justify-center gap-2 text-xs text-slate-400">
+            <i class="pi pi-info-circle text-[11px]"></i>
+            <span>Click <span class="font-semibold text-slate-500">Admin</span> above to auto-fill demo credentials</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-center text-white/40 text-xs mt-6 font-medium">© 2026 MES Pro · Built with Vue 3 + PrimeVue + Tailwind v4</p>
+    </div>
+
+    <Toast position="top-center" />
+  </div>
+</template>

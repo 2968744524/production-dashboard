@@ -1,56 +1,18 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
-  {
-    path: '/login',
-    name: 'Login',
-    component: () => import('../views/LoginView.vue')
-  },
-  {
-    path: '/',
-    component: () => import('../views/LayoutView.vue'),
-    redirect: '/dashboard',
-    children: [
-      {
-        path: 'dashboard',
-        name: 'Dashboard',
-        component: () => import('../views/DashboardView.vue'),
-        meta: { title: 'Production Dashboard' }
-      },
-      {
-        path: 'tasks',
-        name: 'Tasks',
-        component: () => import('../views/TasksView.vue'),
-        meta: { title: 'Task Management' }
-      },
-      {
-        path: 'equipment',
-        name: 'Equipment',
-        component: () => import('../views/EquipmentView.vue'),
-        meta: { title: 'Equipment Monitor' }
-      },
-      {
-        path: 'analytics',
-        name: 'Analytics',
-        component: () => import('../views/AnalyticsView.vue'),
-        meta: { title: 'Data Analytics' }
-      }
-    ]
-  }
+  { path: '/', redirect: '/dashboard' },
+  { path: '/login', name: 'Login', component: () => import('../views/LoginView.vue') },
+  { path: '/dashboard', name: 'Dashboard', component: () => import('../views/DashboardView.vue') },
+  { path: '/work-orders', name: 'WorkOrders', component: () => import('../views/WorkOrdersView.vue') },
+  { path: '/quality', name: 'Quality', component: () => import('../views/QualityView.vue') },
+  { path: '/equipment', name: 'Equipment', component: () => import('../views/EquipmentView.vue') },
+  { path: '/inventory', name: 'Inventory', component: () => import('../views/InventoryView.vue') },
+  { path: '/traceability', name: 'Traceability', component: () => import('../views/TraceabilityView.vue') },
+  { path: '/workforce', name: 'Workforce', component: () => import('../views/WorkforceView.vue') },
 ]
 
-const router = createRouter({
-  history: createWebHashHistory(),
-  routes
+export default createRouter({
+  history: createWebHistory(),
+  routes,
 })
-
-router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('token')
-  if (to.path !== '/login' && !token) {
-    next('/login')
-  } else {
-    next()
-  }
-})
-
-export default router

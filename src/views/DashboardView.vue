@@ -1,325 +1,295 @@
-<template>
-  <div class="dashboard">
-    <!-- Stats Row -->
-    <el-row :gutter="16" class="stats-row">
-      <el-col :span="6" v-for="(stat, i) in stats" :key="i">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-icon" :style="{ background: stat.gradient }">
-            <el-icon :size="24"><component :is="stat.icon" /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value stat-number">{{ stat.value }}</div>
-            <div class="stat-label">{{ stat.label }}</div>
-          </div>
-          <div class="stat-trend" :class="stat.trendUp ? 'up' : 'down'">
-            <el-icon><component :is="stat.trendUp ? 'Top' : 'Bottom'" /></el-icon>
-            {{ stat.change }}%
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <!-- Charts Row -->
-    <el-row :gutter="16" style="margin-top: 16px;">
-      <el-col :span="16">
-        <el-card class="chart-card">
-          <template #header>
-            <div class="card-header"><span>Production Trend (7 Days)</span></div>
-          </template>
-          <div ref="trendChartRef" style="height: 320px;"></div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card class="chart-card">
-          <template #header>
-            <div class="card-header"><span>Quality Distribution</span></div>
-          </template>
-          <div ref="qualityChartRef" style="height: 320px;"></div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <!-- Bottom Row -->
-    <el-row :gutter="16" style="margin-top: 16px;">
-      <el-col :span="14">
-        <el-card class="chart-card">
-          <template #header>
-            <div class="card-header"><span>Department Output Comparison</span></div>
-          </template>
-          <div ref="deptChartRef" style="height: 280px;"></div>
-        </el-card>
-      </el-col>
-      <el-col :span="10">
-        <el-card class="chart-card alert-card">
-          <template #header>
-            <div class="card-header"><span>Real-time Alerts</span></div>
-          </template>
-          <div class="alert-list">
-            <div
-              v-for="alert in alerts"
-              :key="alert.id"
-              class="alert-item"
-              :class="'alert-' + alert.type"
-            >
-              <div class="alert-dot"></div>
-              <div class="alert-content">
-                <div class="alert-msg">{{ alert.message }}</div>
-                <div class="alert-time">{{ alert.time }}</div>
-              </div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-  </div>
-</template>
-
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import * as echarts from 'echarts'
-import { productionStats, productionTrend, qualityData, departmentOutput, alerts } from '../stores/data'
+import { useDataStore } from '../stores/data'
+import Chart from 'primevue/chart'
+import Toast from 'primevue/toast'
 
-const trendChartRef = ref(null)
-const qualityChartRef = ref(null)
-const deptChartRef = ref(null)
-let charts = []
+const store = useDataStore()
+const isDark = ref(false)
 
-const stats = [
-  { label: "Today's Output", value: productionStats.totalOutput.toLocaleString(), icon: 'Box', gradient: 'linear-gradient(135deg,#409eff,#337ecc)', change: 5.2, trendUp: true },
-  { label: 'Completion Rate', value: productionStats.completionRate + '%', icon: 'CircleCheck', gradient: 'linear-gradient(135deg,#67c23a,#529b2e)', change: 2.1, trendUp: true },
-  { label: 'Active Equipment', value: `${productionStats.activeEquipment}/${productionStats.totalEquipment}`, icon: 'Cpu', gradient: 'linear-gradient(135deg,#e6a23c,#b88230)', change: 0, trendUp: false },
-  { label: 'Tasks Completed', value: productionStats.completedTasksToday, icon: 'List', gradient: 'linear-gradient(135deg,#f56c6c,#c45656)', change: 12.3, trendUp: true }
-]
-
-function initTrendChart() {
-  const chart = echarts.init(trendChartRef.value)
-  chart.setOption({
-    tooltip: { trigger: 'axis' },
-    legend: { data: ['Actual', 'Target'], textStyle: { color: '#8a9bb0' }, top: 0 },
-    grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
-    xAxis: {
-      type: 'category',
-      data: productionTrend.dates,
-      axisLine: { lineStyle: { color: '#2c3e50' } },
-      axisLabel: { color: '#8a9bb0' }
-    },
-    yAxis: {
-      type: 'value',
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#1e2d3d' } },
-      axisLabel: { color: '#8a9bb0' }
-    },
-    series: [
-      {
-        name: 'Actual',
-        type: 'line',
-        data: productionTrend.actual,
-        smooth: true,
-        lineStyle: { width: 3, color: '#409eff' },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(64,158,255,0.25)' },
-            { offset: 1, color: 'rgba(64,158,255,0)' }
-          ])
-        },
-        itemStyle: { color: '#409eff' }
-      },
-      {
-        name: 'Target',
-        type: 'line',
-        data: productionTrend.target,
-        smooth: true,
-        lineStyle: { width: 2, color: '#67c23a', type: 'dashed' },
-        itemStyle: { color: '#67c23a' }
-      }
-    ]
-  })
-  charts.push(chart)
+const colorMap = {
+  indigo:  { bg: 'bg-indigo-50 dark:bg-indigo-500/15',  text: 'text-indigo-600 dark:text-indigo-400', ring: 'bg-indigo-500' },
+  emerald: { bg: 'bg-emerald-50 dark:bg-emerald-500/15', text: 'text-emerald-600 dark:text-emerald-400', ring: 'bg-emerald-500' },
+  amber:   { bg: 'bg-amber-50 dark:bg-amber-500/15',   text: 'text-amber-600 dark:text-amber-400',   ring: 'bg-amber-500' },
+  rose:    { bg: 'bg-rose-50 dark:bg-rose-500/15',     text: 'text-rose-600 dark:text-rose-400',     ring: 'bg-rose-500' },
+  blue:    { bg: 'bg-blue-50 dark:bg-blue-500/15',     text: 'text-blue-600 dark:text-blue-400',     ring: 'bg-blue-500' },
+  teal:    { bg: 'bg-teal-50 dark:bg-teal-500/15',     text: 'text-teal-600 dark:text-teal-400',     ring: 'bg-teal-500' },
 }
 
-function initQualityChart() {
-  const chart = echarts.init(qualityChartRef.value)
-  chart.setOption({
-    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-    legend: { orient: 'horizontal', bottom: 0, textStyle: { color: '#8a9bb0' } },
-    series: [{
-      type: 'pie',
-      radius: ['42%', '70%'],
-      center: ['50%', '45%'],
-      avoidLabelOverlap: false,
-      itemStyle: { borderColor: '#1e2d3d', borderWidth: 2 },
-      label: { color: '#8a9bb0', fontSize: 12 },
-      data: qualityData.categories.map((name, i) => ({
-        value: qualityData.values[i],
-        name,
-        itemStyle: {
-          color: ['#67c23a', '#409eff', '#e6a23c', '#f56c6c'][i]
-        }
-      })),
-      emphasis: {
-        itemStyle: { shadowBlur: 20, shadowColor: 'rgba(0,0,0,0.4)' }
+const productionChart = ref({})
+const qualityChart = ref({})
+const oeeChart = ref({})
+const chartOptions = ref({})
+const doughnutOptions = ref({})
+const radarOptions = ref({})
+
+function buildCharts() {
+  productionChart.value = {
+    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    datasets: [
+      {
+        label: 'Output',
+        data: [1850, 2100, 1940, 2300, 2180, 1650, 1200],
+        borderColor: '#6366f1',
+        backgroundColor: (ctx) => {
+          const { ctx: c, chartArea } = ctx.chart
+          if (!chartArea) return 'rgba(99,102,241,0.1)'
+          const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
+          g.addColorStop(0, 'rgba(99,102,241,0.3)'); g.addColorStop(1, 'rgba(99,102,241,0)')
+          return g
+        },
+        fill: true, tension: 0.4, borderWidth: 3,
+        pointRadius: 4, pointHoverRadius: 7,
+        pointBackgroundColor: '#fff', pointBorderColor: '#6366f1', pointBorderWidth: 2.5,
+        pointHoverBackgroundColor: '#6366f1', pointHoverBorderColor: '#fff',
+      },
+      {
+        label: 'Target', data: [2000, 2000, 2000, 2000, 2000, 2000, 2000],
+        borderColor: '#f59e0b', borderDash: [8, 4], borderWidth: 2,
+        fill: false, tension: 0, pointRadius: 0,
       }
+    ]
+  }
+
+  qualityChart.value = {
+    labels: ['Pass', 'Rework', 'Scrap'],
+    datasets: [{
+      data: [78.2, 16.5, 5.3],
+      backgroundColor: ['#6366f1', '#f59e0b', '#ef4444'],
+      borderWidth: 0, hoverOffset: 14, spacing: 3,
     }]
-  })
-  charts.push(chart)
+  }
+
+  oeeChart.value = {
+    labels: ['Availability', 'Performance', 'Quality', 'OEE'],
+    datasets: [{
+      label: 'Today',
+      data: [91.8, 88.4, 98.2, 82.4],
+      backgroundColor: 'rgba(99,102,241,0.15)',
+      borderColor: '#6366f1', borderWidth: 2.5,
+      pointBackgroundColor: '#6366f1', pointBorderColor: '#fff', pointBorderWidth: 2,
+      pointRadius: 4, pointHoverRadius: 6,
+    }, {
+      label: 'Target', data: [92, 90, 98, 85],
+      backgroundColor: 'rgba(245,158,11,0.06)',
+      borderColor: '#f59e0b', borderDash: [8, 4], borderWidth: 2, pointRadius: 0,
+    }]
+  }
 }
 
-function initDeptChart() {
-  const chart = echarts.init(deptChartRef.value)
-  chart.setOption({
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    legend: { data: ['This Month', 'Last Month'], textStyle: { color: '#8a9bb0' }, top: 0 },
-    grid: { left: '3%', right: '4%', bottom: '3%', top: '18%', containLabel: true },
-    xAxis: {
-      type: 'category',
-      data: departmentOutput.departments,
-      axisLine: { lineStyle: { color: '#2c3e50' } },
-      axisLabel: { color: '#8a9bb0', fontSize: 11 }
+function buildOptions() {
+  const dark = isDark.value
+  const gridColor = dark ? 'rgba(148,163,184,0.08)' : 'rgba(15,23,42,0.05)'
+  const tickColor = dark ? '#64748b' : '#94a3b8'
+
+  chartOptions.value = {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: true, position: 'top', align: 'end',
+        labels: { color: dark ? '#cbd5e1' : '#475569', font: { size: 12, family: 'Inter', weight: 500 }, usePointStyle: true, pointStyle: 'circle', padding: 16, boxWidth: 8 } },
+      tooltip: { backgroundColor: dark ? '#1e293b' : '#fff', titleColor: dark ? '#f1f5f9' : '#0f172a', bodyColor: dark ? '#94a3b8' : '#475569', borderColor: dark ? '#334155' : '#e2e8f0', borderWidth: 1, cornerRadius: 12, padding: 12, titleFont: { size: 13, family: 'Inter', weight: 600 }, bodyFont: { size: 12, family: 'Inter' }, displayColors: true, boxPadding: 4, caretSize: 6 }
     },
-    yAxis: {
-      type: 'value',
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#1e2d3d' } },
-      axisLabel: { color: '#8a9bb0' }
-    },
-    series: [
-      {
-        name: 'This Month',
-        type: 'bar',
-        data: departmentOutput.currentMonth,
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#409eff' }, { offset: 1, color: '#337ecc' }
-          ]),
-          borderRadius: [4, 4, 0, 0]
-        },
-        barWidth: '35%'
-      },
-      {
-        name: 'Last Month',
-        type: 'bar',
-        data: departmentOutput.lastMonth,
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#2c3e50' }, { offset: 1, color: '#1e2d3d' }
-          ]),
-          borderRadius: [4, 4, 0, 0]
-        },
-        barWidth: '35%'
-      }
-    ]
-  })
-  charts.push(chart)
+    scales: {
+      x: { ticks: { color: tickColor, font: { size: 11, family: 'Inter' } }, grid: { display: false }, border: { color: dark ? '#334155' : '#e2e8f0' } },
+      y: { ticks: { color: tickColor, font: { size: 11, family: 'Inter' } }, grid: { color: gridColor }, border: { display: false } }
+    }
+  }
+
+  doughnutOptions.value = {
+    ...chartOptions.value, cutout: '70%',
+    plugins: { ...chartOptions.value.plugins, legend: { ...chartOptions.value.plugins.legend, position: 'bottom', labels: { ...chartOptions.value.plugins.legend.labels, padding: 16, usePointStyle: true } } },
+    scales: undefined,
+  }
+
+  radarOptions.value = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { ...chartOptions.value.plugins.legend, position: 'bottom' }, tooltip: chartOptions.value.plugins.tooltip },
+    scales: { r: { min: 0, max: 100, ticks: { color: dark ? '#475569' : '#cbd5e1', backdropColor: 'transparent', font: { size: 10 }, stepSize: 25 }, grid: { color: dark ? 'rgba(148,163,184,0.12)' : 'rgba(15,23,42,0.06)' }, angleLines: { color: dark ? 'rgba(148,163,184,0.12)' : 'rgba(15,23,42,0.06)' }, pointLabels: { color: dark ? '#e2e8f0' : '#334155', font: { size: 11, family: 'Inter', weight: 500 } } } }
+  }
 }
+
+const observer = new MutationObserver(() => {
+  isDark.value = document.documentElement.classList.contains('dark')
+  buildCharts(); buildOptions()
+})
 
 onMounted(() => {
-  setTimeout(() => {
-    initTrendChart()
-    initQualityChart()
-    initDeptChart()
-  }, 100)
-
-  window.addEventListener('resize', () => {
-    charts.forEach(c => c.resize())
-  })
+  isDark.value = document.documentElement.classList.contains('dark')
+  buildCharts(); buildOptions()
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
 })
-
-onUnmounted(() => {
-  charts.forEach(c => c.dispose())
-})
+onUnmounted(() => observer.disconnect())
 </script>
 
-<style scoped>
-.stats-row .stat-card {
-  padding: 4px 16px;
-}
-.stat-card :deep(.el-card__body) {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px 16px;
-}
-.stat-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  flex-shrink: 0;
-}
-.stat-info { flex: 1; }
-.stat-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.2;
-}
-.stat-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-top: 4px;
-}
-.stat-trend {
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-.stat-trend.up { color: var(--accent-green); }
-.stat-trend.down { color: var(--accent-red); }
+<template>
+  <div class="fade-in">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+      <div>
+        <div class="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 font-medium mb-1.5">
+          <span>Plant Operations</span>
+          <i class="pi pi-angle-right text-[10px]"></i>
+          <span class="text-slate-600 dark:text-slate-400">Dashboard</span>
+        </div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Production Overview</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">{{ new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) }} · Plant 1, Michigan</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span class="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Live</span>
+          <span class="text-xs text-slate-400 dark:text-slate-500">· Just now</span>
+        </div>
+        <button class="btn-ghost flex items-center gap-1.5 text-sm">
+          <i class="pi pi-download text-xs"></i>Export
+        </button>
+      </div>
+    </div>
 
-.chart-card {
-  border-radius: 10px;
-}
-.card-header span {
-  font-weight: 500;
-  color: var(--text-primary);
-  font-size: 15px;
-}
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+      <div v-for="(item, i) in store.dashboardKpi" :key="i" class="stat-card group cursor-pointer">
+        <div class="flex items-start justify-between mb-4">
+          <div class="p-2.5 rounded-xl transition-transform group-hover:scale-110" :class="colorMap[item.color].bg">
+            <i :class="[item.icon, colorMap[item.color].text]" class="text-lg"></i>
+          </div>
+          <span class="text-[11px] font-bold px-2 py-1 rounded-md flex items-center gap-0.5"
+            :class="item.up ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400'">
+            <i :class="item.up ? 'pi pi-arrow-up' : 'pi pi-arrow-down'" class="text-[9px]"></i>
+            {{ item.change }}
+          </span>
+        </div>
+        <div class="text-[26px] xl:text-[28px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight" style="font-variant-numeric: tabular-nums;">{{ item.value }}</div>
+        <div class="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">{{ item.label }}</div>
+        <!-- Mini sparkline -->
+        <div class="mt-3 h-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+          <div class="h-full rounded-full" :class="colorMap[item.color].ring" :style="{ width: 60 + Math.random() * 30 + '%' }"></div>
+        </div>
+      </div>
+    </div>
 
-.alert-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.alert-item {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 10px 12px;
-  background: rgba(255,255,255,0.02);
-  border-radius: 8px;
-  border-left: 3px solid transparent;
-}
-.alert-error { border-left-color: #f56c6c; }
-.alert-warning { border-left-color: #e6a23c; }
-.alert-info { border-left-color: #409eff; }
-.alert-success { border-left-color: #67c23a; }
+    <!-- Charts Row 1 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="lg:col-span-2 chart-card">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <h3 class="font-semibold text-base text-slate-900 dark:text-white">Production Trend</h3>
+            <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Output vs target · Last 7 days</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium">7 days</span>
+          </div>
+        </div>
+        <div class="h-64"><Chart type="line" :data="productionChart" :options="chartOptions" /></div>
+      </div>
 
-.alert-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  margin-top: 5px;
-}
-.alert-error .alert-dot { background: #f56c6c; box-shadow: 0 0 8px #f56c6c66; }
-.alert-warning .alert-dot { background: #e6a23c; box-shadow: 0 0 8px #e6a23c66; }
-.alert-info .alert-dot { background: #409eff; box-shadow: 0 0 8px #409eff66; }
-.alert-success .alert-dot { background: #67c23a; box-shadow: 0 0 8px #67c23a66; }
+      <div class="chart-card flex flex-col">
+        <div class="mb-2">
+          <h3 class="font-semibold text-base text-slate-900 dark:text-white">Quality Rate</h3>
+          <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Pass · Rework · Scrap</p>
+        </div>
+        <div class="flex-1 flex items-center justify-center min-h-0"><Chart type="doughnut" :data="qualityChart" :options="doughnutOptions" /></div>
+      </div>
+    </div>
 
-.alert-content { flex: 1; }
-.alert-msg {
-  color: var(--text-primary);
-  font-size: 13px;
-  line-height: 1.5;
-}
-.alert-time {
-  color: var(--text-secondary);
-  font-size: 11px;
-  margin-top: 4px;
-}
-</style>
+    <!-- Charts Row 2 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="chart-card">
+        <div class="mb-5">
+          <h3 class="font-semibold text-base text-slate-900 dark:text-white">OEE Breakdown</h3>
+          <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Availability × Performance × Quality</p>
+        </div>
+        <div class="h-56"><Chart type="radar" :data="oeeChart" :options="radarOptions" /></div>
+      </div>
+
+      <div class="lg:col-span-2 chart-card">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <h3 class="font-semibold text-base text-slate-900 dark:text-white">Recent Alerts</h3>
+            <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Latest system notifications</p>
+          </div>
+          <button class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors flex items-center gap-1">
+            View all <i class="pi pi-arrow-right text-[10px]"></i>
+          </button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <div v-for="alert in store.alerts.slice(0, 5)" :key="alert.id"
+            class="flex items-center gap-3 p-3 rounded-xl table-row-hover cursor-pointer">
+            <div class="p-2.5 rounded-xl flex-shrink-0"
+              :class="{
+                'bg-rose-50 dark:bg-rose-500/15': alert.level === 'error',
+                'bg-amber-50 dark:bg-amber-500/15': alert.level === 'warning',
+                'bg-blue-50 dark:bg-blue-500/15': alert.level === 'info',
+              }">
+              <i class="text-sm" :class="{
+                'pi pi-times-circle text-rose-500': alert.level === 'error',
+                'pi pi-exclamation-triangle text-amber-500': alert.level === 'warning',
+                'pi pi-info-circle text-blue-500': alert.level === 'info',
+              }"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{{ alert.message }}</p>
+              <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{{ alert.time }} · <span class="font-medium text-slate-500 dark:text-slate-400">{{ alert.source }}</span></p>
+            </div>
+            <span class="badge flex-shrink-0" :class="{
+              'badge-high': alert.level === 'error',
+              'badge-medium': alert.level === 'warning',
+              'badge-low': alert.level === 'info',
+            }">{{ alert.level }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Work Orders -->
+    <div class="chart-card">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h3 class="font-semibold text-base text-slate-900 dark:text-white">Active Work Orders</h3>
+          <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Currently in progress</p>
+        </div>
+        <router-link to="/work-orders" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors flex items-center gap-1">
+          View all <i class="pi pi-arrow-right text-[10px]"></i>
+        </router-link>
+      </div>
+      <div class="overflow-x-auto -mx-6 px-6">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+              <th class="text-left py-3 px-2 font-bold">Work Order</th>
+              <th class="text-left py-3 px-2 font-bold">Product</th>
+              <th class="text-left py-3 px-2 font-bold">Line</th>
+              <th class="text-right py-3 px-2 font-bold">Qty</th>
+              <th class="text-left py-3 px-2 font-semibold w-56">Progress</th>
+              <th class="text-left py-3 px-2 font-bold">Due</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="wo in store.workOrders.filter(w => w.status === 'In Progress').slice(0, 5)" :key="wo.id"
+              class="border-b border-slate-100 dark:border-slate-800/50 table-row-hover cursor-pointer">
+              <td class="py-3 px-2 font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">{{ wo.id }}</td>
+              <td class="py-3 px-2 text-slate-700 dark:text-slate-300 font-medium">{{ wo.product }}</td>
+              <td class="py-3 px-2"><span class="badge badge-todo">{{ wo.line }}</span></td>
+              <td class="py-3 px-2 text-right text-slate-600 dark:text-slate-400 tabular-nums">{{ wo.completed }}/{{ wo.qty }}</td>
+              <td class="py-3 px-2">
+                <div class="flex items-center gap-2.5">
+                  <div class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                    <div class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all" :style="{ width: wo.progress + '%' }"></div>
+                  </div>
+                  <span class="text-xs font-semibold text-slate-600 dark:text-slate-400 w-10 text-right tabular-nums">{{ wo.progress }}%</span>
+                </div>
+              </td>
+              <td class="py-3 px-2 text-xs text-slate-500 dark:text-slate-400 tabular-nums">{{ wo.dueDate }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <Toast />
+  </div>
+</template>
