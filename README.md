@@ -2,6 +2,8 @@
 
 > Enterprise-grade Manufacturing Execution System (MES) built with **Vue 3 + PrimeVue + Tailwind CSS v4 + Chart.js**
 
+**[Live Demo](https://24a080184c104cb496502a97ec4189ce.app.codebuddy.work)** · Login with `admin / admin123`
+
 ![Vue 3](https://img.shields.io/badge/Vue-3.5-4FC08D?logo=vue.js)
 ![PrimeVue](https://img.shields.io/badge/PrimeVue-4.5-6366F1)
 ![Tailwind v4](https://img.shields.io/badge/Tailwind-4.0-38BDF8?logo=tailwindcss)
@@ -9,7 +11,7 @@
 
 A production-grade MES (Manufacturing Execution System) frontend demonstrating real industrial patterns: SPC quality control with X̄-R charts, OEE breakdown across Availability × Performance × Quality, work order scheduling with Gantt visualization, end-to-end product traceability, and a full workforce management module with realistic shift scheduling.
 
-Built for the North American discrete-manufacturing market — every data point, batch ID, and customer name reflects authentic industry conventions.
+Designed for the North American discrete-manufacturing market — every data point, batch ID, and customer name reflects authentic industry conventions.
 
 ---
 
@@ -222,10 +224,6 @@ MIT License — free to use as reference or starting point for your own projects
 
 ## 🤝 Contact
 
-Built as a portfolio piece for Upwork / freelance engagements. Specializing in:
-- Industrial / manufacturing dashboards
-- Real-time data visualization
-- Vue 3 + TypeScript frontends
-- Cross-cultural UX for global clients
+Specializing in industrial/manufacturing dashboards, real-time data visualization, and full-stack web development.
 
-For project inquiries, please reach out via [Upwork profile link].
+Feel free to reach out for collaboration or project discussions.
